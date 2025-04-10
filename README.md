@@ -1,5 +1,3 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
 ## Getting Started
 
 First, run the development server:
@@ -16,18 +14,51 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses PostgreSQL with Drizzle ORM. To set up the database:
 
-## Learn More
+1. Create a `.env` file in the root directory with the following variables:
 
-To learn more about Next.js, take a look at the following resources:
+   ```
+   DATABASE_URL=your_postgresql_connection_string
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. The database connection string should follow this format:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```
+   postgresql://username:password@host:port/database
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
+
+4. The database connection is automatically configured when you start the development server.
+
+## Database Seeding
+
+To seed the database with initial test data, run:
+
+```bash
+npm run db:seed
+# or
+yarn db:seed
+# or
+pnpm db:seed
+```
+
+This will create:
+
+- A test user (email: johndoe@example.com, password: password123)
+- A sample project
+- Several test tasks with different statuses
 
 ## Deploy on Vercel
 
