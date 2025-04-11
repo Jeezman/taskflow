@@ -1,10 +1,23 @@
 import { Card } from '@/src/components/ui/card';
+import { SessionService } from '@/app/services/session';
+import { UserService } from '@/app/services/user';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const sessionService = SessionService.getInstance();
+  const userId = await sessionService.getCurrentUserId();
+  let firstName = '';
+
+  if (userId) {
+    const userService = UserService.getInstance();
+    firstName = await userService.getUserFirstName(userId);
+  }
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Welcome back!</h1>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Welcome back{firstName ? `, ${firstName}` : ''}!
+        </h1>
         <p className="text-slate-500">
           Here&apos;s what&apos;s happening with your tasks today.
         </p>
