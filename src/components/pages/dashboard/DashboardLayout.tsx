@@ -1,12 +1,22 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
+import { logout } from '@/app/(auth)/actions';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
+  async function handleLogout() {
+    await logout();
+    router.refresh();
+    router.push('/');
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="fixed w-64 h-screen bg-white border-r border-slate-200 p-6 overflow-y-auto">
@@ -123,7 +133,7 @@ export default function DashboardLayout({
                     height={40}
                   />
                 </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg pt-2 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                   <Link
                     href="/dashboard"
                     className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
@@ -168,25 +178,27 @@ export default function DashboardLayout({
                     </svg>
                     Settings
                   </Link>
-                  <Link
-                    href="/signout"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <form action={handleLogout} className="w-full">
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 w-full cursor-pointer"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                      />
-                    </svg>
-                    Sign Out
-                  </Link>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      Sign Out
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>
