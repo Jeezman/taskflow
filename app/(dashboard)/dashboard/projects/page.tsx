@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -33,10 +33,12 @@ export default function ProjectsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -129,6 +131,53 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleEdit = async (data: ProjectFormData) => {
+    if (!projectToEdit) return;
+
+    try {
+      setSubmitError(null);
+      const response = await fetch(`/api/projects?id=${projectToEdit.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update project');
+      }
+
+      const updatedProject = await response.json();
+      setProjects(
+        projects.map((project) =>
+          project.id === updatedProject.id ? updatedProject : project
+        )
+      );
+      setProjectToEdit(null);
+      reset();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to update project. Please try again.'
+      );
+      console.error('Error updating project:', error);
+    }
+  };
+
+  const openEditModal = (project: Project) => {
+    setProjectToEdit(project);
+    setValue('title', project.title);
+    setValue('description', project.description);
+  };
+
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto">
@@ -207,6 +256,13 @@ export default function ProjectsPage() {
                     View Details
                   </Link>
                   <button
+                    onClick={() => openEditModal(project)}
+                    className="text-blue-600 hover:text-blue-700"
+                    aria-label="Edit project"
+                  >
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => setProjectToDelete(project.id)}
                     className="text-red-600 hover:text-red-700"
                     aria-label="Delete project"
@@ -216,6 +272,66 @@ export default function ProjectsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {projectToEdit && (
+          <div className="fixed inset-0 bg-black/40 z-10 bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                Edit Project
+              </h3>
+              <form onSubmit={handleSubmit(handleEdit)} className="space-y-4">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Project title..."
+                    className={`w-full px-4 py-2 border ${
+                      errors.title ? 'border-red-300' : 'border-slate-200'
+                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    {...register('title')}
+                  />
+                  {errors.title && (
+                    <p className="mt-1 text-sm text-red-600" role="alert">
+                      {errors.title.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <textarea
+                    placeholder="Project description..."
+                    className={`w-full px-4 py-2 border ${
+                      errors.description ? 'border-red-300' : 'border-slate-200'
+                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]`}
+                    {...register('description')}
+                  />
+                  {errors.description && (
+                    <p className="mt-1 text-sm text-red-600" role="alert">
+                      {errors.description.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProjectToEdit(null);
+                      reset();
+                    }}
+                    className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 

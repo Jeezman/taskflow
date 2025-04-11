@@ -121,3 +121,62 @@ export async function DELETE(request: Request) {
     );
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('id');
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'Project ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const validatedData = projectSchema.parse(body);
+
+    // Update the project only if it belongs to the current user
+    const [updatedProject] = await db
+      .update(projects)
+      .set({
+        title: validatedData.title,
+        description: validatedData.description,
+      })
+      .where(
+        and(
+          eq(projects.id, parseInt(projectId)),
+          eq(projects.userId, parseInt(session.user.id))
+        )
+      )
+      .returning();
+
+    if (!updatedProject) {
+      return NextResponse.json(
+        { error: 'Project not found or unauthorized' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updatedProject);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    console.error('Error updating project:', error);
+    return NextResponse.json(
+      { error: 'Failed to update project' },
+      { status: 500 }
+    );
+  }
+}
