@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { signup, SignupFormData } from '../actions';
+import { useState } from 'react';
 
 const signupSchema = z
   .object({
@@ -17,9 +20,9 @@ const signupSchema = z
     path: ['confirmPassword'],
   });
 
-type SignupFormData = z.infer<typeof signupSchema>;
-
 export default function SignupPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -29,8 +32,14 @@ export default function SignupPage() {
   });
 
   const onSubmit = async (data: SignupFormData) => {
-    // TODO: Implement signup logic
-    console.log(data);
+    setError(null);
+    const result = await signup(data);
+
+    if (result?.error) {
+      setError(result.error);
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (
@@ -41,6 +50,14 @@ export default function SignupPage() {
             Create your account
           </h2>
         </div>
+        {error && (
+          <div
+            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded relative"
+            role="alert"
+          >
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

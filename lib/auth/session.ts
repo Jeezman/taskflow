@@ -7,7 +7,7 @@ const SALT_ROUNDS = 10;
 
 type SessionData = {
   user: { id: string };
-  expires: string;
+  expires?: string;
 };
 
 export async function hashPassword(password: string) {
@@ -18,11 +18,25 @@ export async function verifyPassword(password: string, hash: string) {
   return await compare(password, hash);
 }
 
-export async function createSession(userId: string) {
-  return await new SignJWT({ userId })
+export async function signToken(payload: SessionData) {
+  return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('7d')
+    .setIssuedAt()
+    .setExpirationTime('30m')
     .sign(key);
+}
+
+export async function verifyToken(input: string) {
+  const { payload } = await jwtVerify(input, key, {
+    algorithms: ['HS256'],
+  });
+  return payload as SessionData;
+}
+
+export async function getSession() {
+  const session = (await cookies()).get('session')?.value;
+  if (!session) return null;
+  return await verifyToken(session);
 }
 
 export async function setSession({
@@ -38,7 +52,9 @@ export async function setSession({
     expires: timeToExpire.toISOString(),
   };
 
-  (await cookies()).set('session', JSON.stringify(session), {
+  const encodedSession = await signToken(session);
+
+  (await cookies()).set('session', encodedSession, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
