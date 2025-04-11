@@ -433,8 +433,31 @@ export default function TasksPage() {
     setNewTaskDueDate('');
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter((task) => task.id !== taskId));
+  const deleteTask = async (taskId: string) => {
+    const taskToDelete = tasks.find((task) => task.id === taskId);
+    if (!taskToDelete) return;
+
+    if (
+      !confirm(
+        `Are you sure you want to delete the task "${taskToDelete.title}"?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/tasks?id=${taskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete task');
+      }
+
+      setTasks(tasks.filter((task) => task.id !== taskId));
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
   };
 
   const editTask = (task: Task) => {
