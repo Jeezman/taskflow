@@ -1,15 +1,42 @@
 import { Card } from '@/src/components/ui/card';
 import { SessionService } from '@/app/services/session';
 import { UserService } from '@/app/services/user';
+import Link from 'next/link';
+import { db } from '@/lib/db';
+import { tasks, projects } from '@/lib/db/schema';
+import { desc, eq } from 'drizzle-orm';
+
+type Task = {
+  id: number;
+  projectId: number;
+  title: string;
+  description: string | null;
+  status: 'todo' | 'in-progress' | 'done';
+  dueDate: Date | null;
+};
 
 export default async function DashboardPage() {
   const sessionService = SessionService.getInstance();
   const userId = await sessionService.getCurrentUserId();
   let firstName = '';
+  let userTasks: Task[] = [];
 
   if (userId) {
     const userService = UserService.getInstance();
     firstName = await userService.getUserFirstName(userId);
+
+    const recentTasks = await db
+      .select()
+      .from(tasks)
+      .innerJoin(projects, eq(tasks.projectId, projects.id))
+      .where(eq(projects.userId, userId))
+      .orderBy(desc(tasks.id))
+      .limit(5);
+
+    userTasks = recentTasks.map((result) => ({
+      ...result.tasks,
+      dueDate: result.tasks.dueDate ? new Date(result.tasks.dueDate) : null,
+    }));
   }
 
   return (
@@ -127,66 +154,112 @@ export default async function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Recent Tasks</h2>
-          <a
+          <Link
             href="/dashboard/tasks"
             className="text-sm text-blue-600 hover:text-blue-700"
           >
             View all
-          </a>
+          </Link>
         </div>
 
         <Card className="overflow-hidden">
-          <div className="divide-y divide-slate-200">
-            {[1, 2, 3, 4, 5].map((task) => (
-              <div
-                key={task}
-                className="p-4 hover:bg-slate-50 transition-colors"
+          {userTasks.length === 0 ? (
+            <div className="p-8 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="checkbox"
-                      id={`task-${task}`}
-                      className="w-4 h-4 text-blue-600 rounded border-slate-300"
-                      aria-label={`Mark task ${task} as complete`}
-                    />
-                    <div>
-                      <h3 className="font-medium text-slate-900">
-                        Task {task}
-                      </h3>
-                      <p className="text-sm text-slate-500">
-                        Due in {task} days
-                      </p>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-slate-900">
+                No tasks yet
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Get started by creating a new project.
+              </p>
+              <div className="mt-6">
+                <Link
+                  href="/dashboard/projects"
+                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                >
+                  Create Project
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-200">
+              {userTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="p-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="checkbox"
+                        id={`task-${task.id}`}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                        aria-label={`Mark task ${task.title} as complete`}
+                        checked={task.status === 'done'}
+                        readOnly
+                      />
+                      <div>
+                        <h3 className="font-medium text-slate-900">
+                          {task.title}
+                        </h3>
+                        <p className="text-sm text-slate-500">
+                          {task.dueDate
+                            ? `Due ${new Date(
+                                task.dueDate
+                              ).toLocaleDateString()}`
+                            : 'No due date'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          task.status === 'done'
+                            ? 'bg-green-100 text-green-800'
+                            : task.status === 'in-progress'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                      <button
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                        aria-label={`More options for task ${task.title}`}
+                        title={`More options for task ${task.title}`}
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                          />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                      In Progress
-                    </span>
-                    <button
-                      className="p-1 text-slate-400 hover:text-slate-600"
-                      aria-label={`More options for task ${task}`}
-                      title={`More options for task ${task}`}
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
