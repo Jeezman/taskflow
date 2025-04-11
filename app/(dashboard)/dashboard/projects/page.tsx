@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const projectSchema = z.object({
   title: z
@@ -27,8 +28,10 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const {
     register,
     handleSubmit,
@@ -38,19 +41,60 @@ export default function ProjectsPage() {
     resolver: zodResolver(projectSchema),
   });
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch('/api/projects');
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        if (!response.ok) {
+          throw new Error('Failed to fetch projects');
+        }
+        const data = await response.json();
+        setProjects(data);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        setSubmitError('Failed to load projects. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [router]);
+
   const onSubmit = async (data: ProjectFormData) => {
     try {
       setSubmitError(null);
-      // TODO: Implement project creation logic with database
-      const newProject: Project = {
-        id: Date.now(), // Temporary ID until database integration
-        title: data.title,
-        description: data.description,
-      };
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create project');
+      }
+
+      const newProject = await response.json();
       setProjects([...projects, newProject]);
       reset();
     } catch (error) {
-      setSubmitError('Failed to create project. Please try again.');
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to create project. Please try again.'
+      );
       console.error('Error creating project:', error);
     }
   };
@@ -110,27 +154,33 @@ export default function ProjectsPage() {
           </div>
         </form>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
-            >
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                {project.title}
-              </h3>
-              <p className="text-slate-600 mb-4">{project.description}</p>
-              <div className="flex justify-end">
-                <Link
-                  href={`/dashboard/projects/${project.id}`}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  View Details
-                </Link>
+        {isLoading ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+              >
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {project.title}
+                </h3>
+                <p className="text-slate-600 mb-4">{project.description}</p>
+                <div className="flex justify-end">
+                  <Link
+                    href={`/dashboard/projects/${project.id}`}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    View Details
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
