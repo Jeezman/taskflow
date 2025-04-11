@@ -1,17 +1,17 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { login, LoginFormData } from '../actions';
+import { useState } from 'react';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
-
-type LoginFormData = z.infer<typeof loginSchema>;
 
 // export const metadata: Metadata = {
 //   title: 'Login | TaskFlow',
@@ -19,6 +19,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 // };
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -28,8 +30,18 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
-    // TODO: Implement login logic
-    console.log(data);
+    console.log('onSubmit', data);
+    setError(null);
+    const result = await login(data);
+
+    console.log('result', result);
+
+    if (result?.error) {
+      console.log('there is an error', result.error);
+      setError(result.error);
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (
@@ -40,6 +52,14 @@ export default function LoginPage() {
             Sign in to your account
           </h2>
         </div>
+        {error && (
+          <div
+            className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded relative"
+            role="alert"
+          >
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
