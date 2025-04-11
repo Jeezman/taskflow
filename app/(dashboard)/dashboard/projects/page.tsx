@@ -242,34 +242,43 @@ export default function ProjectsPage() {
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-lg transition-shadow"
+                className="bg-white rounded-lg border flex flex-col justify-between border-slate-200 p-6 hover:shadow-lg transition-shadow"
               >
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                  {project.title}
-                </h3>
-                <p className="text-slate-600 mb-4">{project.description}</p>
-                <div className="flex justify-end gap-4">
-                  <Link
-                    href={`/dashboard/projects/${project.id}`}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    View Details
-                  </Link>
-                  <button
-                    onClick={() => openEditModal(project)}
-                    className="text-blue-600 hover:text-blue-700"
-                    aria-label="Edit project"
-                  >
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setProjectToDelete(project.id)}
-                    className="text-red-600 hover:text-red-700"
-                    aria-label="Delete project"
-                  >
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
+                <div className="flex items-start justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                    {project.title}
+                  </h3>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/dashboard/projects/${project.id}/tasks`}
+                      className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                      aria-label="View tasks"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                    </Link>
+                    <button
+                      onClick={() => openEditModal(project)}
+                      className="p-1 text-slate-400 hover:text-blue-500 transition-colors"
+                      aria-label="Edit project"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setProjectToDelete(project.id)}
+                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                      aria-label="Delete project"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+                <p className="text-slate-600 mb-4">{project.description}</p>
+                <Link
+                  href={`/dashboard/projects/${project.id}/tasks`}
+                  className="text-blue-600 hover:text-blue-700 align-baseline"
+                >
+                  View tasks
+                </Link>
               </div>
             ))}
           </div>
