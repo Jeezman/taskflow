@@ -1,42 +1,28 @@
 import { Card } from '@/src/components/ui/card';
 import { SessionService } from '@/app/services/session';
 import { UserService } from '@/app/services/user';
+import { TaskService, Task } from '@/app/services/task';
 import Link from 'next/link';
-import { db } from '@/lib/db';
-import { tasks, projects } from '@/lib/db/schema';
-import { desc, eq } from 'drizzle-orm';
-
-type Task = {
-  id: number;
-  projectId: number;
-  title: string;
-  description: string | null;
-  status: 'todo' | 'in-progress' | 'done';
-  dueDate: Date | null;
-};
 
 export default async function DashboardPage() {
   const sessionService = SessionService.getInstance();
   const userId = await sessionService.getCurrentUserId();
   let firstName = '';
   let userTasks: Task[] = [];
+  let taskCounts = {
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    overdue: 0,
+  };
 
   if (userId) {
     const userService = UserService.getInstance();
     firstName = await userService.getUserFirstName(userId);
 
-    const recentTasks = await db
-      .select()
-      .from(tasks)
-      .innerJoin(projects, eq(tasks.projectId, projects.id))
-      .where(eq(projects.userId, userId))
-      .orderBy(desc(tasks.id))
-      .limit(5);
-
-    userTasks = recentTasks.map((result) => ({
-      ...result.tasks,
-      dueDate: result.tasks.dueDate ? new Date(result.tasks.dueDate) : null,
-    }));
+    const taskService = TaskService.getInstance();
+    userTasks = await taskService.getRecentTasks(userId);
+    taskCounts = await taskService.getTaskCounts(userId);
   }
 
   return (
@@ -55,7 +41,9 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Total Tasks</p>
-              <p className="text-2xl font-bold text-slate-900">24</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {taskCounts.total}
+              </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <svg
@@ -81,7 +69,9 @@ export default async function DashboardPage() {
               <p className="text-sm font-medium text-slate-500">
                 Completed Today
               </p>
-              <p className="text-2xl font-bold text-slate-900">8</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {taskCounts.completed}
+              </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <svg
@@ -105,7 +95,9 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">In Progress</p>
-              <p className="text-2xl font-bold text-slate-900">12</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {taskCounts.inProgress}
+              </p>
             </div>
             <div className="p-3 bg-yellow-100 rounded-lg">
               <svg
@@ -129,7 +121,9 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Overdue</p>
-              <p className="text-2xl font-bold text-slate-900">4</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {taskCounts.overdue}
+              </p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <svg
@@ -187,7 +181,7 @@ export default async function DashboardPage() {
               <div className="mt-6">
                 <Link
                   href="/dashboard/projects"
-                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 >
                   Create Project
                 </Link>
