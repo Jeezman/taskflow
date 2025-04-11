@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getSession } from '@/lib/auth/session';
 
 const projectSchema = z.object({
@@ -73,6 +73,50 @@ export async function GET() {
     console.error('Error fetching projects:', error);
     return NextResponse.json(
       { error: 'Failed to fetch projects' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('id');
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'Project ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const [deletedProject] = await db
+      .delete(projects)
+      .where(
+        and(
+          eq(projects.id, parseInt(projectId)),
+          eq(projects.userId, parseInt(session.user.id))
+        )
+      )
+      .returning();
+
+    if (!deletedProject) {
+      return NextResponse.json(
+        { error: 'Project not found or unauthorized' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete project' },
       { status: 500 }
     );
   }

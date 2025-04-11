@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -32,6 +32,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
   const {
     register,
     handleSubmit,
@@ -96,6 +97,35 @@ export default function ProjectsPage() {
           : 'Failed to create project. Please try again.'
       );
       console.error('Error creating project:', error);
+    }
+  };
+
+  const handleDelete = async (projectId: number) => {
+    try {
+      setSubmitError(null);
+      const response = await fetch(`/api/projects?id=${projectId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete project');
+      }
+
+      setProjects(projects.filter((project) => project.id !== projectId));
+      setProjectToDelete(null);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete project. Please try again.'
+      );
+      console.error('Error deleting project:', error);
     }
   };
 
@@ -169,16 +199,51 @@ export default function ProjectsPage() {
                   {project.title}
                 </h3>
                 <p className="text-slate-600 mb-4">{project.description}</p>
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-4">
                   <Link
                     href={`/dashboard/projects/${project.id}`}
                     className="text-blue-600 hover:text-blue-700"
                   >
                     View Details
                   </Link>
+                  <button
+                    onClick={() => setProjectToDelete(project.id)}
+                    className="text-red-600 hover:text-red-700"
+                    aria-label="Delete project"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {projectToDelete && (
+          <div className="fixed inset-0 bg-black/40 z-10 bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                Delete Project
+              </h3>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to delete this project? This action cannot
+                be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setProjectToDelete(null)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(projectToDelete)}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
