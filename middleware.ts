@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setSession } from '@/lib/auth/session';
+import { setSession, verifyToken } from '@/lib/auth/session';
+
 const protectedRoutes = ['/dashboard'];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('session');
   const isProtectedRoute = protectedRoutes.some((route) =>
@@ -10,8 +11,6 @@ export function middleware(request: NextRequest) {
   );
 
   if (isProtectedRoute && !sessionCookie) {
-    console.log('Redirecting to login', request.url);
-    console.log('Session cookie', sessionCookie);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -19,15 +18,14 @@ export function middleware(request: NextRequest) {
 
   if (sessionCookie) {
     try {
+      const payload = await verifyToken(sessionCookie.value);
       const expiresInThirtyMinutes = 30 * 60 * 1000;
-      const dateToExpire = new Date(Date.now() + 30 * 60 * 1000);
-      if (dateToExpire < new Date()) {
-        return NextResponse.redirect(new URL('/login', request.url));
-      }
-
-      setSession({ userId: '1', expiresIn: expiresInThirtyMinutes });
+      await setSession({
+        userId: payload.user.id,
+        expiresIn: expiresInThirtyMinutes,
+      });
     } catch (error) {
-      console.error('Error updating session cookie', error);
+      console.error('Session error:', error);
       res.cookies.delete('session');
       if (isProtectedRoute) {
         return NextResponse.redirect(new URL('/login', request.url));
