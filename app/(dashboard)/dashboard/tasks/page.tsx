@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   PlusIcon,
   TrashIcon,
@@ -35,6 +35,23 @@ interface Task {
   status: TaskStatus;
   dueDate: Date | null;
   createdAt: Date;
+  projectId: number;
+}
+
+interface Project {
+  id: number;
+  title: string;
+  description: string;
+}
+
+interface ApiTask {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  dueDate: string | null;
+  createdAt: string;
+  projectId: number;
 }
 
 const getStatusColor = (status: TaskStatus) => {
@@ -99,7 +116,7 @@ function EditTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 z-10 bg-opacity-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-semibold mb-4">Edit Task</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -314,11 +331,16 @@ function Column({
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    null
+  );
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -334,9 +356,58 @@ export default function TasksPage() {
     })
   );
 
+  const fetchTasks = async (projectId: number) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/tasks?projectId=${projectId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+      const data = (await response.json()) as ApiTask[];
+      // Convert string dates to Date objects
+      const tasksWithDates = data.map((task) => ({
+        ...task,
+        dueDate: task.dueDate ? new Date(task.dueDate) : null,
+        createdAt: new Date(task.createdAt),
+      }));
+      setTasks(tasksWithDates);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+          throw new Error('Failed to fetch projects');
+        }
+        const data = await response.json();
+        setProjects(data);
+        if (data.length > 0) {
+          const firstProjectId = data[0].id;
+          setSelectedProjectId(firstProjectId);
+          await fetchTasks(firstProjectId);
+        }
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
+  const handleProjectChange = async (projectId: number) => {
+    setSelectedProjectId(projectId);
+    await fetchTasks(projectId);
+  };
+
   const addTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!newTaskTitle.trim() || !selectedProjectId) return;
 
     const newTask: Task = {
       id: Date.now().toString(),
@@ -345,6 +416,7 @@ export default function TasksPage() {
       dueDate: newTaskDueDate ? new Date(newTaskDueDate) : null,
       status: 'todo',
       createdAt: new Date(),
+      projectId: selectedProjectId,
     };
 
     setTasks([...tasks, newTask]);
@@ -429,6 +501,20 @@ export default function TasksPage() {
 
         <form onSubmit={addTask} className="mb-8 space-y-4">
           <div className="flex gap-4">
+            <select
+              value={selectedProjectId || ''}
+              onChange={(e) => handleProjectChange(Number(e.target.value))}
+              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              aria-label="Select project"
+            >
+              <option value="">Select a project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
             <input
               type="text"
               value={newTaskTitle}
@@ -463,67 +549,75 @@ export default function TasksPage() {
           </div>
         </form>
 
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(['todo', 'in-progress', 'done'] as TaskStatus[]).map((status) => (
-              <Column
-                key={status}
-                status={status}
-                tasks={tasks.filter((task) => task.status === status)}
-                onDelete={deleteTask}
-                onEdit={editTask}
-              />
-            ))}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
-          <DragOverlay>
-            {activeTask ? (
-              <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">{activeTask.title}</span>
-                  <button
-                    className="p-1 text-slate-400"
-                    aria-label="Delete task"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                {activeTask.description && (
-                  <p className="text-sm text-slate-600 mb-3 line-clamp-2">
-                    {activeTask.description}
-                  </p>
-                )}
-                {activeTask.dueDate && (
-                  <div className="flex items-center gap-1 mb-3">
-                    <CalendarIcon className="w-4 h-4 text-slate-400" />
-                    <span
-                      className={`text-sm ${
-                        isOverdue(activeTask.dueDate)
-                          ? 'text-red-500'
-                          : 'text-slate-600'
-                      }`}
+        ) : (
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {(['todo', 'in-progress', 'done'] as TaskStatus[]).map(
+                (status) => (
+                  <Column
+                    key={status}
+                    status={status}
+                    tasks={tasks.filter((task) => task.status === status)}
+                    onDelete={deleteTask}
+                    onEdit={editTask}
+                  />
+                )
+              )}
+            </div>
+            <DragOverlay>
+              {activeTask ? (
+                <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">{activeTask.title}</span>
+                    <button
+                      className="p-1 text-slate-400"
+                      aria-label="Delete task"
                     >
-                      {formatDate(activeTask.dueDate)}
-                      {isOverdue(activeTask.dueDate) && ' (Overdue)'}
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {activeTask.description && (
+                    <p className="text-sm text-slate-600 mb-3 line-clamp-2">
+                      {activeTask.description}
+                    </p>
+                  )}
+                  {activeTask.dueDate && (
+                    <div className="flex items-center gap-1 mb-3">
+                      <CalendarIcon className="w-4 h-4 text-slate-400" />
+                      <span
+                        className={`text-sm ${
+                          isOverdue(activeTask.dueDate)
+                            ? 'text-red-500'
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {formatDate(activeTask.dueDate)}
+                        {isOverdue(activeTask.dueDate) && ' (Overdue)'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-center">
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${getStatusColor(
+                        activeTask.status
+                      )}`}
+                    >
+                      {getStatusLabel(activeTask.status)}
                     </span>
                   </div>
-                )}
-                <div className="flex justify-center">
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${getStatusColor(
-                      activeTask.status
-                    )}`}
-                  >
-                    {getStatusLabel(activeTask.status)}
-                  </span>
                 </div>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
 
         {editingTask && (
           <EditTaskModal
