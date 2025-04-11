@@ -441,11 +441,40 @@ export default function TasksPage() {
     setEditingTask(task);
   };
 
-  const handleEditSave = (updatedTask: Task) => {
-    setTasks(
-      tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
-    );
-    setEditingTask(null);
+  const handleEditSave = async (updatedTask: Task) => {
+    try {
+      const response = await fetch(`/api/tasks?id=${updatedTask.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: updatedTask.title,
+          description: updatedTask.description,
+          dueDate: updatedTask.dueDate?.toISOString().split('T')[0],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update task');
+      }
+
+      const savedTask = await response.json();
+      const taskWithDates = {
+        ...savedTask,
+        dueDate: savedTask.dueDate ? new Date(savedTask.dueDate) : null,
+        createdAt: new Date(savedTask.createdAt),
+      };
+
+      setTasks(
+        tasks.map((task) =>
+          task.id === taskWithDates.id ? taskWithDates : task
+        )
+      );
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
