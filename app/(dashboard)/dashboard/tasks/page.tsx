@@ -452,7 +452,7 @@ export default function TasksPage() {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -462,6 +462,8 @@ export default function TasksPage() {
     // If dropped on a column
     if (['todo', 'in-progress', 'done'].includes(over.id as string)) {
       const newStatus = over.id as TaskStatus;
+
+      // Update the task status in the UI immediately
       setTasks(
         tasks.map((task) => {
           if (task.id === active.id) {
@@ -470,6 +472,36 @@ export default function TasksPage() {
           return task;
         })
       );
+
+      // If moved to in-progress, make an API call
+      if (newStatus === 'in-progress') {
+        try {
+          const response = await fetch(`/api/tasks?id=${activeTask.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update task status');
+          }
+        } catch (error) {
+          console.error('Error updating task status:', error);
+          // Revert the status change in the UI if the API call fails
+          setTasks(
+            tasks.map((task) => {
+              if (task.id === active.id) {
+                return { ...task, status: activeTask.status };
+              }
+              return task;
+            })
+          );
+        }
+      }
     } else {
       // If dropped on a task
       const overTask = tasks.find((task) => task.id === over.id);
@@ -481,14 +513,45 @@ export default function TasksPage() {
           setTasks(arrayMove(tasks, oldIndex, newIndex));
         } else {
           // Move to a different column
+          const newStatus = overTask.status;
           setTasks(
             tasks.map((task) => {
               if (task.id === active.id) {
-                return { ...task, status: overTask.status };
+                return { ...task, status: newStatus };
               }
               return task;
             })
           );
+
+          // If moved to in-progress, make an API call
+          if (newStatus === 'in-progress') {
+            try {
+              const response = await fetch(`/api/tasks?id=${activeTask.id}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  status: newStatus,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to update task status');
+              }
+            } catch (error) {
+              console.error('Error updating task status:', error);
+              // Revert the status change in the UI if the API call fails
+              setTasks(
+                tasks.map((task) => {
+                  if (task.id === active.id) {
+                    return { ...task, status: activeTask.status };
+                  }
+                  return task;
+                })
+              );
+            }
+          }
         }
       }
     }
