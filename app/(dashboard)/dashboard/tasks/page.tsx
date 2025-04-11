@@ -25,6 +25,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import Link from 'next/link';
 
 type TaskStatus = 'todo' | 'in-progress' | 'done';
 
@@ -340,7 +341,8 @@ export default function TasksPage() {
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showNoProjectsAlert, setShowNoProjectsAlert] = useState(false);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -358,7 +360,7 @@ export default function TasksPage() {
 
   const fetchTasks = async (projectId: number) => {
     try {
-      setIsLoading(true);
+      // setIsLoading(true);
       const response = await fetch(`/api/tasks?projectId=${projectId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch tasks');
@@ -371,6 +373,7 @@ export default function TasksPage() {
         createdAt: new Date(task.createdAt),
       }));
       setTasks(tasksWithDates);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -391,9 +394,14 @@ export default function TasksPage() {
           const firstProjectId = data[0].id;
           setSelectedProjectId(firstProjectId);
           await fetchTasks(firstProjectId);
+          setShowNoProjectsAlert(false);
+        } else {
+          setShowNoProjectsAlert(true);
         }
       } catch (error) {
         console.error('Error fetching projects:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -494,66 +502,89 @@ export default function TasksPage() {
 
   return (
     <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
+      ) : (
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-2xl font-bold text-slate-900">Tasks</h1>
+          </div>
 
-        <form onSubmit={addTask} className="mb-8 space-y-4">
-          <div className="flex gap-4">
-            <select
-              value={selectedProjectId || ''}
-              onChange={(e) => handleProjectChange(Number(e.target.value))}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              aria-label="Select project"
-            >
-              <option value="">Select a project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="Task title..."
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Add Task
-            </button>
-          </div>
-          <div>
-            <textarea
-              value={newTaskDescription}
-              onChange={(e) => setNewTaskDescription(e.target.value)}
-              placeholder="Task description..."
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-            />
-          </div>
-          <div className="relative">
-            <input
-              type="date"
-              value={newTaskDueDate}
-              onChange={(e) => setNewTaskDueDate(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Due date"
-            />
-          </div>
-        </form>
+          {showNoProjectsAlert && (
+            <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-blue-800">
+                    No Projects Found
+                  </h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    You need to create a project before you can add tasks.
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/projects"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Create Project
+                </Link>
+              </div>
+            </div>
+          )}
 
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
+          {!showNoProjectsAlert && (
+            <form onSubmit={addTask} className="mb-8 space-y-4">
+              <div className="flex gap-4">
+                <select
+                  value={selectedProjectId || ''}
+                  onChange={(e) => handleProjectChange(Number(e.target.value))}
+                  className="px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  aria-label="Select project"
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Task title..."
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  Add Task
+                </button>
+              </div>
+              <div>
+                <textarea
+                  value={newTaskDescription}
+                  onChange={(e) => setNewTaskDescription(e.target.value)}
+                  placeholder="Task description..."
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={newTaskDueDate}
+                  onChange={(e) => setNewTaskDueDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Due date"
+                />
+              </div>
+            </form>
+          )}
+
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -617,16 +648,16 @@ export default function TasksPage() {
               ) : null}
             </DragOverlay>
           </DndContext>
-        )}
 
-        {editingTask && (
-          <EditTaskModal
-            task={editingTask}
-            onClose={() => setEditingTask(null)}
-            onSave={handleEditSave}
-          />
-        )}
-      </div>
+          {editingTask && (
+            <EditTaskModal
+              task={editingTask}
+              onClose={() => setEditingTask(null)}
+              onSave={handleEditSave}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
