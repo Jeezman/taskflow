@@ -8,13 +8,10 @@ interface Project {
   id: number;
   title: string;
   description: string | null;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
 }
-
-const mockProjects: Project[] = [
-  { id: 1, title: 'Project 1', description: 'Description for project 1' },
-  { id: 2, title: 'Project 2', description: 'Description for project 2' },
-  { id: 3, title: 'Project 3', description: 'Description for project 3' },
-];
 
 export default function ProjectDetailsPage({
   params,
@@ -27,25 +24,41 @@ export default function ProjectDetailsPage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      setLoading(true);
-      setError(null);
-      const projectId = parseInt(params.id);
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const projectId = parseInt(params.id);
 
-      const projectData = mockProjects.find((p) => p.id === projectId);
+        if (isNaN(projectId)) {
+          setError('Invalid project ID');
+          return;
+        }
 
-      if (!projectData) {
-        setError('Project not found');
-        return;
+        const response = await fetch(`/api/projects/${projectId}`);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('Project not found');
+          } else if (response.status === 401) {
+            setError('Unauthorized');
+          } else {
+            setError('Failed to load project details');
+          }
+          return;
+        }
+
+        const projectData = await response.json();
+        setProject(projectData);
+      } catch (err) {
+        setError('Failed to load project details');
+        console.error('Error fetching project:', err);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setProject(projectData);
-    } catch (err) {
-      setError('Failed to load project details');
-      console.error('Error fetching project:', err);
-    } finally {
-      setLoading(false);
-    }
+    fetchProject();
   }, [params.id]);
 
   if (loading) {
@@ -92,6 +105,12 @@ export default function ProjectDetailsPage({
             {project.title}
           </h1>
           <p className="text-slate-600">{project.description}</p>
+          <div className="mt-4 text-sm text-slate-500">
+            <p>Created: {new Date(project.createdAt).toLocaleDateString()}</p>
+            <p>
+              Last updated: {new Date(project.updatedAt).toLocaleDateString()}
+            </p>
+          </div>
         </div>
       </div>
     </div>
